@@ -5,6 +5,8 @@ Pvoid_t nodes = (Pvoid_t)NULL;
 Pvoid_t links = (Pvoid_t)NULL;
 
 
+/* ====================================================================== */
+
 void
 load_graph(void)
 {
@@ -30,18 +32,18 @@ load_graph(void)
 	d = 0;
       }
 
+      ++num_nodes;
       pi = i;
       JLI(pv, nodes, i);
       *pv = l0;
 
-      ++num_nodes;
     }
 
+    ++num_links;
     JLI(pv, links, li);
     *pv = v;
     ++li;
     ++d;
-    ++num_links;
   }
 
   if (num_nodes > 0) {
@@ -52,6 +54,8 @@ load_graph(void)
   printf("loaded %lu nodes, %lu links\n", num_nodes, num_links);
 }
 
+
+/* ====================================================================== */
 
 void
 dump_links(Word_t i, Word_t li)
@@ -71,6 +75,8 @@ dump_links(Word_t i, Word_t li)
 }
 
 
+/* ====================================================================== */
+
 void
 dump_graph(void)
 {
@@ -86,7 +92,7 @@ dump_graph(void)
 }
 
 
-/* ======================================================================== */
+/* ====================================================================== */
 
 int
 main(int argc, char *argv[])
