@@ -98,8 +98,7 @@ compute_node_distance_metrics(Word_t i0)
 ** Simultaneously computes the average distance and the standard deviation
 ** of the distance distribution.
 **
-** The sample standard deviation code is based on a perl version by Ken Keys.
-** The code is efficient and numerically stable.
+** The sample standard deviation code is efficient and numerically stable.
 */
 void
 compute_average_distance(void)
