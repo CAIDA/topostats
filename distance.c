@@ -13,6 +13,7 @@
 */
 
 #include <stdio.h>
+#include <math.h>
 #include <Judy.h>
 
 Pvoid_t nodes = (Pvoid_t)NULL;
@@ -94,22 +95,29 @@ compute_node_distance_metrics(Word_t i0)
 
 
 /*
-** eccentricity of node i = max distance from i
-** graph diameter = max eccentricity in a graph
-** graph radius = min eccentricity in a graph
+** Simultaneously computes the average distance and the standard deviation
+** of the distance distribution.
+**
+** The sample standard deviation code is based on a perl version by Ken Keys.
+** The code is efficient and numerically stable.
 */
 void
 compute_average_distance(void)
 {
-  Word_t i, count;
+  Word_t i, j, count;
   Word_t *pv;
-  unsigned long long sum;
+  unsigned long long sum;  /* sum of the distances */
+  long sd_i;
+  double sd_mean, sd_q;
 
 #ifdef DEBUG
   printf("\n* distance distribution:\n");
 #endif
 
   sum = 0;
+  sd_i = 0;
+  sd_mean = sd_q = 0.0;
+
   i = 0;
   JLF(pv, distance_dist, i);
   while (pv != NULL) {
@@ -120,10 +128,18 @@ compute_average_distance(void)
     printf("  %lu: %lu\n", i, count);
 #endif
 
+    /* std dev calculation */
+    for (j = 0; j < count; j++) {
+      sd_i += 1;
+      sd_q += (sd_i - 1) * (i - sd_mean) * (i - sd_mean) / sd_i;
+      sd_mean += (i - sd_mean) / sd_i;
+    }
+
     JLN(pv, distance_dist, i);
   }
 
   printf("average distance = %.3f\n", sum / (double)num_pairs);
+  printf("std deviation = %.3f\n", sqrt(sd_q / (sd_i - 1)));
 }
 
 
