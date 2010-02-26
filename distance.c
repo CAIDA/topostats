@@ -186,6 +186,11 @@ load_graph(void)
   d = 0;   /* node degree */
 
   while (scanf("%lu %lu", &i, &v) > 0) {
+    if (i == 0 || v == 0) {
+      fputs("ERROR: node IDs must be > 0\n", stderr);
+      exit(1);
+    }
+
     if (i != pi) {
       if (pi != 0) {
 	JLI(pv, links, l0);  *pv = d; /* save the degree of the previous node */
@@ -208,7 +213,7 @@ load_graph(void)
     JLI(pv, links, l0);  *pv = d;  /* save the degree of the last node */
   }
 
-  num_pairs = num_nodes * (num_nodes - 1) / 2;
+  num_pairs = (unsigned long long)num_nodes * (num_nodes - 1) / 2;
   num_links /= 2;  /* count undirected links */
   printf("loaded %lu nodes, %lu undirected links, %llu pairs\n",
 	 num_nodes, num_links, num_pairs);
