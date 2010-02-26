@@ -247,9 +247,7 @@ dump_graph(void)
   i = 0;
   JLF(pv, nodes, i);
   while (pv != NULL) {
-#ifdef DEBUG
     dump_links(i, *pv);
-#endif
     JLN(pv, nodes, i);
   }
 }
@@ -261,7 +259,9 @@ int
 main(int argc, char *argv[])
 {
   load_graph();
+#ifdef DEBUG
   dump_graph();
+#endif
   compute_distance_metrics();
   return 0;
 }
