@@ -1,3 +1,17 @@
+/*
+** Computes various distance-related graph metrics:
+**
+**   * average distance
+**   * std deviation of distance
+**   * exponent of distance distribution
+**
+**   * average eccentricity
+**   * graph radius
+**   * graph diameter
+**   * min degree in center
+**   * min degree in periphery
+*/
+
 #include <stdio.h>
 #include <Judy.h>
 
