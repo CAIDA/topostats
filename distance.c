@@ -217,7 +217,9 @@ dump_graph(void)
   i = 0;
   JLF(pv, nodes, i);
   while (pv != NULL) {
+#ifdef DEBUG
     dump_links(i, *pv);
+#endif
     JLN(pv, nodes, i);
   }
 }
