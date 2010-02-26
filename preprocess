@@ -14,12 +14,38 @@
 ##
 ############################################################################
 
+require 'ostruct'
+require 'optparse'
+
+$options = OpenStruct.new
+$options.allow_self_loops = false
+
+opts = OptionParser.new
+
+opts.on("--[no]-self-loops", TrueClass,
+        "negate the selection criteria") do |v|
+  $options.allow_self_loops = v
+end
+
+begin
+  ARGV.replace opts.parse(*ARGV)
+rescue OptionParser::ParseError
+  $stderr.puts "ERROR: " + $!.to_s
+  $stderr.puts opts
+  exit 1
+end
+
 IO.popen("sort -k 1,2n -k 2,3n", "w") do |sort|
   ARGF.each do |line|
     next if line =~ /^\s*$/ || line =~ /^\#/
 
     if line =~ /^(\d+)\s+(\d+)\s*/
       s, d = $1, $2
+      if s == d && !$options.allow_self_loops
+        $stderr.printf "discarding self loop on node %d\n", s
+        next
+      end
+
       sort.puts "#{s} #{d}\n#{d} #{s}"
     end
   end
