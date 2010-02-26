@@ -7,8 +7,10 @@ Pvoid_t links = (Pvoid_t)NULL;
 Pvoid_t queue = (Pvoid_t)NULL;
 Pvoid_t visited = (Pvoid_t)NULL;  /* Judy1 */
 Pvoid_t distances = (Pvoid_t)NULL;
+Pvoid_t distance_dist = (Pvoid_t)NULL;
 
-unsigned long long distance_sum;
+unsigned long num_nodes, num_links;
+unsigned long long num_pairs;  /* C(n, 2) pairs of nodes */
 unsigned long graph_diameter;
 unsigned long graph_radius;
 
@@ -17,7 +19,7 @@ unsigned long graph_radius;
 void
 compute_node_distance_metrics(Word_t i0)
 {
-  Word_t qhead, qtail, i, i2, li, d, dist;
+  Word_t qhead, qtail, i, i2, li, deg, dist;
   Word_t *pv;
   Word_t Rc_word;
   int Rc_int;
@@ -37,23 +39,77 @@ compute_node_distance_metrics(Word_t i0)
 
     JLG(pv, distances, i);  dist = *pv;
     JLG(pv, nodes, i);  li = *pv;
-    JLG(pv, links, li);  d = *pv;
+    JLG(pv, links, li);  deg = *pv;
 
-    while (d > 0) {
-      --d;
+    while (deg > 0) {
+      --deg;
       ++li;
       JLG(pv, links, li);  i2 = *pv;
+#ifdef DEBUG
       printf("  ? %lu %lu\n", i, i2);
+#endif
 
       J1T(Rc_int, visited, i2);
       if (!Rc_int) {
-	printf("  q %lu %lu @%lu\n", i, i2, dist + 1);
+#ifdef DEBUG
+	printf("  q %lu %lu = %lu\n", i, i2, dist + 1);
+#endif
 	J1S(Rc_int, visited, i2);
 	JLI(pv, distances, i2);  *pv = dist + 1;
-	JLI(pv, queue, qtail);  *pv = i2;  ++qtail;	
+	JLI(pv, queue, qtail);  *pv = i2;  ++qtail;
+
+	/*
+	** Because we represent undirected links with a pair of directed links,
+	** we need to ensure that we don't double count things.  We do this
+	** by only gathering data when the link goes from a lower-numbered
+	** node to a higher-numbered node.
+	**
+	**  NOTE: We must check against the *starting* node (i0) and not
+	**        the current node being traversed (i).
+	*/
+	if (i0 < i2) {
+#ifdef DEBUG
+	  printf("  dist %lu %lu @%lu\n", i0, i2, dist + 1);
+#endif
+	  JLI(pv, distance_dist, dist + 1);  *pv += 1;
+	}
       }
     }
   }
+}
+
+
+/*
+** eccentricity of node i = max distance from i
+** graph diameter = max eccentricity in a graph
+** graph radius = min eccentricity in a graph
+*/
+void
+compute_average_distance(void)
+{
+  Word_t i, count;
+  Word_t *pv;
+  unsigned long long sum;
+
+#ifdef DEBUG
+  printf("\n* distance distribution:\n");
+#endif
+
+  sum = 0;
+  i = 0;
+  JLF(pv, distance_dist, i);
+  while (pv != NULL) {
+    count = *pv;
+    sum += i * count;
+
+#ifdef DEBUG
+    printf("  %lu: %lu\n", i, count);
+#endif
+
+    JLN(pv, distance_dist, i);
+  }
+
+  printf("average distance = %.3f\n", sum / (double)num_pairs);
 }
 
 
@@ -68,17 +124,20 @@ compute_distance_metrics(void)
   Word_t i;
   Word_t *pv;
 
-  distance_sum = 0;
   graph_diameter = 0;
   graph_radius = 0;
 
   i = 0;
   JLF(pv, nodes, i);
   while (pv != NULL) {
+#ifdef DEBUG
     printf("\n* node %lu:\n", i);
+#endif
     compute_node_distance_metrics(i);
     JLN(pv, nodes, i);
   }
+
+  compute_average_distance();
 }
 
 
@@ -87,7 +146,6 @@ compute_distance_metrics(void)
 void
 load_graph(void)
 {
-  unsigned long num_nodes, num_links;
   Word_t pi, i, v, l0, li, d;
   Word_t *pv;
 
@@ -121,7 +179,10 @@ load_graph(void)
     JLI(pv, links, l0);  *pv = d;  /* save the degree of the last node */
   }
 
-  printf("loaded %lu nodes, %lu links\n", num_nodes, num_links);
+  num_pairs = num_nodes * (num_nodes - 1) / 2;
+  num_links /= 2;  /* count undirected links */
+  printf("loaded %lu nodes, %lu undirected links, %llu pairs\n",
+	 num_nodes, num_links, num_pairs);
 }
 
 
