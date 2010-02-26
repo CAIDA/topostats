@@ -26,8 +26,10 @@ Pvoid_t distance_dist = (Pvoid_t)NULL;
 
 unsigned long num_nodes, num_links;
 unsigned long long num_pairs;  /* C(n, 2) pairs of nodes */
-unsigned long graph_diameter;
 unsigned long graph_radius;
+unsigned long graph_diameter;
+unsigned long min_deg_in_graph_center;
+unsigned long max_deg_in_graph_periphery;
 
 /* ====================================================================== */
 
@@ -129,9 +131,14 @@ dump_links(Word_t i, Word_t li)
 /* ====================================================================== */
 
 /*
-** eccentricity of node i = max distance from i
-** graph diameter = max eccentricity in a graph
-** graph radius = min eccentricity in a graph
+** Definitions:
+**
+**   eccentricity of node i = max distance from i
+**   graph radius = min eccentricity in a graph
+**   graph diameter = max eccentricity in a graph
+**
+**   graph periphery = nodes with max eccentricity
+**   graph center = nodes with min eccentricity
 */
 void
 compute_distance_metrics(void)
@@ -139,8 +146,11 @@ compute_distance_metrics(void)
   Word_t i;
   Word_t *pv;
 
+  graph_radius = 0;  /* zero is never a valid distance, so zero = sentinel */
   graph_diameter = 0;
-  graph_radius = 0;
+
+  min_deg_in_graph_center = 0;  /* zero is never a valid degree */
+  max_deg_in_graph_periphery = 0;
 
   i = 0;
   JLF(pv, nodes, i);
@@ -153,6 +163,11 @@ compute_distance_metrics(void)
   }
 
   compute_average_distance();
+
+  printf("graph radius = %lu\n", graph_radius);
+  printf("graph diameter = %lu\n", graph_diameter);
+  printf("min degree in graph center = %lu\n", min_deg_in_graph_center);
+  printf("max degree in graph periphery = %lu\n", max_deg_in_graph_periphery);
 }
 
 
@@ -165,6 +180,7 @@ compute_node_distance_metrics(Word_t i0)
   Word_t *pv;
   Word_t Rc_word;
   int Rc_int;
+  unsigned long eccentricity=0;  /* zero is never a valid distance */
 
   qhead = qtail = 0;
   JLI(pv, queue, qtail);  *pv = i0;  ++qtail;
@@ -199,6 +215,9 @@ compute_node_distance_metrics(Word_t i0)
 	J1S(Rc_int, visited, i2);
 	JLI(pv, distances, i2);  *pv = dist + 1;
 	JLI(pv, queue, qtail);  *pv = i2;  ++qtail;
+	if (dist + 1 > eccentricity) {
+	  eccentricity = dist + 1;
+	}
 
 	/*
 	** Because we represent undirected links with a pair of directed links,
@@ -216,6 +235,32 @@ compute_node_distance_metrics(Word_t i0)
 	  JLI(pv, distance_dist, dist + 1);  *pv += 1;
 	}
       }
+    }
+  }
+
+  /* find degree of the starting node */
+  JLG(pv, nodes, i0);  li = *pv;
+  JLG(pv, links, li);  deg = *pv;
+
+#ifdef DEBUG
+  printf("  eccentricity %lu = %lu\n", i0, eccentricity);
+#endif
+
+  if (eccentricity < graph_radius || graph_radius == 0) {
+    printf("... decreasing radius from %lu to %lu with node %lu\n",
+	   graph_radius, eccentricity, i0);
+    graph_radius = eccentricity;
+    if (deg < min_deg_in_graph_center || min_deg_in_graph_center == 0) {
+      min_deg_in_graph_center = deg;
+    }
+  }
+
+  if (eccentricity > graph_diameter) {
+    printf("... raising diameter from %lu to %lu with node %lu\n",
+	   graph_diameter, eccentricity, i0);
+    graph_diameter = eccentricity;
+    if (deg > max_deg_in_graph_periphery) {
+      max_deg_in_graph_periphery = deg;
     }
   }
 }
