@@ -250,18 +250,21 @@ compute_node_distance_metrics(Word_t i0)
     printf("... decreasing radius from %lu to %lu with node %lu\n",
 	   graph_radius, eccentricity, i0);
     graph_radius = eccentricity;
-    if (deg < min_deg_in_graph_center || min_deg_in_graph_center == 0) {
-      min_deg_in_graph_center = deg;
-    }
+    min_deg_in_graph_center = deg;
+  }
+  else if (eccentricity == graph_radius &&
+	   (deg < min_deg_in_graph_center || min_deg_in_graph_center == 0)) {
+    min_deg_in_graph_center = deg;
   }
 
   if (eccentricity > graph_diameter) {
     printf("... raising diameter from %lu to %lu with node %lu\n",
 	   graph_diameter, eccentricity, i0);
     graph_diameter = eccentricity;
-    if (deg > max_deg_in_graph_periphery) {
-      max_deg_in_graph_periphery = deg;
-    }
+    max_deg_in_graph_periphery = deg;
+  }
+  else if (eccentricity == graph_diameter && deg > max_deg_in_graph_periphery) {
+    max_deg_in_graph_periphery = deg;
   }
 }
 
