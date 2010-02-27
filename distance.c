@@ -26,10 +26,6 @@ Pvoid_t distance_dist = (Pvoid_t)NULL;
 
 unsigned long num_nodes, num_links;
 unsigned long long num_pairs;  /* C(n, 2) pairs of nodes */
-unsigned long graph_radius;
-unsigned long graph_diameter;
-unsigned long min_deg_in_graph_center;
-unsigned long max_deg_in_graph_periphery;
 
 /* ====================================================================== */
 
@@ -37,7 +33,7 @@ void load_graph(void);
 void dump_graph(void);
 void dump_links(Word_t i, Word_t li);
 void compute_distance_metrics(void);
-void compute_node_distance_metrics(Word_t i0);
+unsigned long compute_node_distance_metrics(Word_t i0);
 void compute_average_distance(void);
 
 
@@ -46,8 +42,7 @@ void compute_average_distance(void);
 void
 load_graph(void)
 {
-  Word_t pi, i, v, l0, li, d;
-  Word_t *pv;
+  Word_t pi, i, v, l0, li, d, *pv;
 
   num_nodes = num_links = 0;
 
@@ -96,8 +91,7 @@ load_graph(void)
 void
 dump_graph(void)
 {
-  Word_t i;
-  Word_t *pv;
+  Word_t i, *pv;
 
   i = 0;
   JLF(pv, nodes, i);
@@ -113,8 +107,7 @@ dump_graph(void)
 void
 dump_links(Word_t i, Word_t li)
 {
-  Word_t d;
-  Word_t *pv;
+  Word_t d, *pv;
 
   JLG(pv, links, li);
   d = *pv;
@@ -143,14 +136,11 @@ dump_links(Word_t i, Word_t li)
 void
 compute_distance_metrics(void)
 {
-  Word_t i;
-  Word_t *pv;
-
-  graph_radius = 0;  /* zero is never a valid distance, so zero = sentinel */
-  graph_diameter = 0;
-
-  min_deg_in_graph_center = 0;  /* zero is never a valid degree */
-  max_deg_in_graph_periphery = 0;
+  /* zero is never a valid distance or degree, so zero = sentinel */  
+  unsigned long graph_radius=0, graph_diameter=0;
+  unsigned long min_deg_in_graph_center=0, max_deg_in_graph_periphery=0;
+  unsigned long eccentricity;
+  Word_t i, li, deg, *pv;
 
   i = 0;
   JLF(pv, nodes, i);
@@ -158,7 +148,38 @@ compute_distance_metrics(void)
 #ifdef DEBUG
     printf("\n* node %lu:\n", i);
 #endif
-    compute_node_distance_metrics(i);
+
+    eccentricity = compute_node_distance_metrics(i);
+#ifdef DEBUG
+    printf("  eccentricity %lu = %lu\n", i, eccentricity);
+#endif
+
+    /* find degree of the starting node */
+    JLG(pv, nodes, i);  li = *pv;
+    JLG(pv, links, li);  deg = *pv;
+
+    if (eccentricity < graph_radius || graph_radius == 0) {
+      printf("... decreasing radius from %lu to %lu with node %lu\n",
+	     graph_radius, eccentricity, i);
+      graph_radius = eccentricity;
+      min_deg_in_graph_center = deg;
+    }
+    else if (eccentricity == graph_radius &&
+	     (deg < min_deg_in_graph_center || min_deg_in_graph_center == 0)) {
+      min_deg_in_graph_center = deg;
+    }
+
+    if (eccentricity > graph_diameter) {
+      printf("... raising diameter from %lu to %lu with node %lu\n",
+	     graph_diameter, eccentricity, i);
+      graph_diameter = eccentricity;
+      max_deg_in_graph_periphery = deg;
+    }
+    else if (eccentricity == graph_diameter &&
+	     deg > max_deg_in_graph_periphery) {
+      max_deg_in_graph_periphery = deg;
+    }
+
     JLN(pv, nodes, i);
   }
 
@@ -173,12 +194,13 @@ compute_distance_metrics(void)
 
 /* ====================================================================== */
 
-void
+/*
+** Returns the eccentricity of the node.
+*/
+unsigned long
 compute_node_distance_metrics(Word_t i0)
 {
-  Word_t qhead, qtail, i, i2, li, deg, dist;
-  Word_t *pv;
-  Word_t Rc_word;
+  Word_t qhead, qtail, i, i2, li, deg, dist, *pv, Rc_word;
   int Rc_int;
   unsigned long eccentricity=0;  /* zero is never a valid distance */
 
@@ -238,34 +260,7 @@ compute_node_distance_metrics(Word_t i0)
     }
   }
 
-  /* find degree of the starting node */
-  JLG(pv, nodes, i0);  li = *pv;
-  JLG(pv, links, li);  deg = *pv;
-
-#ifdef DEBUG
-  printf("  eccentricity %lu = %lu\n", i0, eccentricity);
-#endif
-
-  if (eccentricity < graph_radius || graph_radius == 0) {
-    printf("... decreasing radius from %lu to %lu with node %lu\n",
-	   graph_radius, eccentricity, i0);
-    graph_radius = eccentricity;
-    min_deg_in_graph_center = deg;
-  }
-  else if (eccentricity == graph_radius &&
-	   (deg < min_deg_in_graph_center || min_deg_in_graph_center == 0)) {
-    min_deg_in_graph_center = deg;
-  }
-
-  if (eccentricity > graph_diameter) {
-    printf("... raising diameter from %lu to %lu with node %lu\n",
-	   graph_diameter, eccentricity, i0);
-    graph_diameter = eccentricity;
-    max_deg_in_graph_periphery = deg;
-  }
-  else if (eccentricity == graph_diameter && deg > max_deg_in_graph_periphery) {
-    max_deg_in_graph_periphery = deg;
-  }
+  return eccentricity;
 }
 
 
@@ -278,8 +273,7 @@ compute_node_distance_metrics(Word_t i0)
 void
 compute_average_distance(void)
 {
-  Word_t i, j, count;
-  Word_t *pv;
+  Word_t i, j, count, *pv;
   unsigned long long sum;  /* sum of the distances */
   long sd_i;
   double sd_mean, sd_q;
