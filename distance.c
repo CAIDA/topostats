@@ -140,6 +140,8 @@ compute_distance_metrics(void)
   unsigned long graph_radius=0, graph_diameter=0;
   unsigned long min_deg_in_graph_center=0, max_deg_in_graph_periphery=0;
   unsigned long eccentricity;
+  double avg_eccentricity=0.0;
+  unsigned long k=0;  /* index of eccentricity sample for calculating mean */
   Word_t i, li, deg, *pv;
 
   i = 0;
@@ -180,11 +182,17 @@ compute_distance_metrics(void)
       max_deg_in_graph_periphery = deg;
     }
 
+    /* A numerically stable incremental calculation of the mean:
+            M(1) = x(1), M(k) = M(k-1) + (x(k) - M(k-1)) / k  */
+    ++k;
+    avg_eccentricity = avg_eccentricity + (eccentricity - avg_eccentricity) / k;
+
     JLN(pv, nodes, i);
   }
 
   compute_average_distance();
 
+  printf("average eccentricity = %.3f\n", avg_eccentricity);
   printf("graph radius = %lu\n", graph_radius);
   printf("graph diameter = %lu\n", graph_diameter);
   printf("min degree in graph center = %lu\n", min_deg_in_graph_center);
