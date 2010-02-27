@@ -18,8 +18,8 @@ unsigned long num_nodes, num_links;
 void load_graph(void);
 void dump_graph(void);
 void dump_links(Word_t i, Word_t li);
-void find_connected_components(void);
-void find_connected_component(Word_t i);
+Word_t find_connected_components(void);
+unsigned long find_connected_component(Word_t i);
 
 /* ====================================================================== */
 
@@ -108,33 +108,46 @@ dump_links(Word_t i, Word_t li)
 
 /* ====================================================================== */
 
-void
+/*
+** Prints a summary of all connected components found in the input graph
+** and returns the node ID of the largest connected component (the node ID
+** of a component is the lowest node ID in the component).
+*/
+Word_t
 find_connected_components(void)
 {
   Word_t i;
   Word_t *pv;
   int Rc_int;
   unsigned long num_components=0;
+  unsigned long max_cc_size=0, cc_size;
+  Word_t cc_id=0;
 
   i = 0;
   JLF(pv, nodes, i);
   while (pv != NULL) {
     J1T(Rc_int, visited, i);
     if (!Rc_int) {
-      find_connected_component(i);
+      cc_size = find_connected_component(i);
+      if (cc_size > max_cc_size) {
+	max_cc_size = cc_size;
+	cc_id = i;
+      }
       ++num_components;
     }
 
     JLN(pv, nodes, i);
   }
 
-  printf("%lu components\n", num_components);
+  printf("%lu components; largest at node ID %lu\n", num_components, cc_id);
+  return cc_id;
 }
 
 
 /* ====================================================================== */
 
-void
+/* Returns the size of the connected component that includes the given node. */
+unsigned long
 find_connected_component(Word_t i0)
 {
   Word_t qhead, qtail, i, i2, li, deg;
@@ -171,6 +184,7 @@ find_connected_component(Word_t i0)
   num_cc_links /= 2;  /* undirected links */
   printf("component at node %lu: %lu nodes, %lu undirected links\n",
 	 i0, num_cc_nodes, num_cc_links);
+  return num_cc_nodes;
 }
 
 
