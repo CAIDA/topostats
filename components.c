@@ -1,7 +1,10 @@
 /*
-** Gives a summary of the connected components found in the input graph.
+** Gives a summary of the connected components found in the input graph,
+** and optionally writes out the largest connected component to a file
+** as a graph.
 */
 
+#include <unistd.h>
 #include <stdio.h>
 #include <Judy.h>
 
@@ -19,7 +22,7 @@ void load_graph(void);
 void dump_graph(void);
 void dump_links(Word_t i, Word_t li);
 Word_t find_connected_components(void);
-unsigned long find_connected_component(Word_t i);
+unsigned long find_connected_component(Word_t i, int print_component);
 
 /* ====================================================================== */
 
@@ -128,7 +131,7 @@ find_connected_components(void)
   while (pv != NULL) {
     J1T(Rc_int, visited, i);
     if (!Rc_int) {
-      cc_size = find_connected_component(i);
+      cc_size = find_connected_component(i, 0);
       if (cc_size > max_cc_size) {
 	max_cc_size = cc_size;
 	cc_id = i;
@@ -148,7 +151,7 @@ find_connected_components(void)
 
 /* Returns the size of the connected component that includes the given node. */
 unsigned long
-find_connected_component(Word_t i0)
+find_connected_component(Word_t i0, int print_component)
 {
   Word_t qhead, qtail, i, i2, li, deg;
   Word_t *pv;
@@ -178,6 +181,10 @@ find_connected_component(Word_t i0)
 	J1S(Rc_int, visited, i2);
 	JLI(pv, queue, qtail);  *pv = i2;  ++qtail;
       }
+
+      if (print_component) {
+	printf("%lu %lu\n", i, i2);
+      }
     }
   }
 
@@ -193,10 +200,41 @@ find_connected_component(Word_t i0)
 int
 main(int argc, char *argv[])
 {
+  const char *opt_output_path=NULL;
+  int c;
+  Word_t cc_id, Rc_word;
+
+  while ((c = getopt(argc, argv, "o:")) != -1) {
+    switch (c) {
+    case 'o':
+      opt_output_path = optarg;
+      break;
+
+    case '?':
+    default:
+      fprintf(stderr, "Usage: components [-o <output-file>]\n"
+              "  where -o prints out the largest component to a file\n");
+      exit(1);
+    }
+  }
+  argc -= optind;
+  argv += optind;
+
   load_graph();
 #ifdef DEBUG
   dump_graph();
 #endif
-  find_connected_components();
+
+  cc_id = find_connected_components();
+  if (opt_output_path) {
+    if (!freopen(opt_output_path, "w", stdout)) {
+      fprintf(stderr, "ERROR: couldn't open output file '%s'\n",
+	      opt_output_path);
+      exit(1);
+    }
+
+    J1FA(Rc_word, visited);
+    find_connected_component(cc_id, 1);
+  }
   return 0;
 }
