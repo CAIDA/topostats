@@ -34,7 +34,7 @@ void dump_graph(void);
 void dump_links(Word_t i, Word_t li);
 void compute_distance_metrics(void);
 unsigned long compute_node_distance_metrics(Word_t i0);
-void compute_average_distance(void);
+void compute_distance_statistics(void);
 
 
 /* ====================================================================== */
@@ -190,7 +190,7 @@ compute_distance_metrics(void)
     JLN(pv, nodes, i);
   }
 
-  compute_average_distance();
+  compute_distance_statistics();
 
   printf("average eccentricity = %.3f\n", avg_eccentricity);
   printf("graph radius = %lu\n", graph_radius);
@@ -273,18 +273,22 @@ compute_node_distance_metrics(Word_t i0)
 
 
 /*
-** Simultaneously computes the average distance and the standard deviation
-** of the distance distribution.
+** Computes the average distance and the standard deviation of the
+** distance distribution.
 **
-** The sample standard deviation code is efficient and numerically stable.
+** The sample standard deviation code is efficient and numerically
+** stable.  However, we compute the average distance separately using
+** (mostly) integer arithmetic rather than simply re-using the mean
+** calculated by the incremental standard deviation code because the
+** latter seems to produce a mean that is slightly less accurate due
+** to round-off errors.
 */
 void
-compute_average_distance(void)
+compute_distance_statistics(void)
 {
   Word_t i, j, count, *pv;
-  unsigned long long sum;  /* sum of the distances */
-  long sd_i;
-  double sd_mean, sd_q;
+  unsigned long long sum;  /* sum of the distances for avg distance calc */
+  double sd_i, sd_mean, sd_q;
 
 #ifdef DEBUG
   printf("\n* distance distribution:\n");
