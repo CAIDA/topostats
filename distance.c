@@ -185,7 +185,7 @@ compute_distance_metrics(void)
     /* A numerically stable incremental calculation of the mean:
             M(1) = x(1), M(k) = M(k-1) + (x(k) - M(k-1)) / k  */
     ++k;
-    avg_eccentricity = avg_eccentricity + (eccentricity - avg_eccentricity) / k;
+    avg_eccentricity += (eccentricity - avg_eccentricity) / k;
 
     JLN(pv, nodes, i);
   }
