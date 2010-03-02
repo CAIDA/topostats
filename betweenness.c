@@ -15,7 +15,16 @@ Pvoid_t links = (Pvoid_t)NULL;
 Pvoid_t queue = (Pvoid_t)NULL;
 Pvoid_t visited = (Pvoid_t)NULL;  /* Judy1 */
 Pvoid_t distances = (Pvoid_t)NULL;
-Pvoid_t centrality = (Pvoid_t)NULL;  /* C_B[v] */
+
+/*
+** Because delta and centrality are floating values, we can't use Judy
+** arrays to store them.  Therefore, we use {node_index} to map the index
+** of nodes in {nodes} to indexes in {delta} and {centrality}, since the
+** indexes in {nodes} may be sparse.
+*/
+Pvoid_t node_index = (Pvoid_t)NULL;
+double *delta = NULL;       /* delta[t]: dependency of s on t */
+double *centrality = NULL;  /* C_B[v]: betweenness centrality for node v */
 
 unsigned long num_nodes, num_links;
 unsigned long long num_pairs;  /* C(n, 2) pairs of nodes */
@@ -27,7 +36,12 @@ void dump_graph(void);
 void dump_links(Word_t i, Word_t li);
 void compute_brandes_betweenness_centrality(void);
 void compute_node_brandes_betweenness_centrality(Word_t s);
-
+void compute_node_dependency(Word_t s, Pvoid_t L, Word_t ltail, Pvoid_t P,
+			     Pvoid_t sigma);
+void normalize_node_centrality(void);
+void compute_centrality_statistics(void);
+void free_predecessor_array(Pvoid_t P);
+void zero_node_values(double *x);
 
 /* ====================================================================== */
 
@@ -55,6 +69,8 @@ load_graph(void)
 	l0 = li++;
 	d = 0;
       }
+
+      JLI(pv, node_index, i);  *pv = num_nodes;
 
       ++num_nodes;
       pi = i;
@@ -131,7 +147,8 @@ compute_brandes_betweenness_centrality(void)
     JLN(pv, nodes, s);
   }
 
-  /* XXX print results */
+  normalize_node_centrality();
+  compute_centrality_statistics();
 }
 
 
@@ -170,9 +187,8 @@ compute_node_brandes_betweenness_centrality(Word_t s)
   Pvoid_t P = (Pvoid_t)NULL;
   Pvoid_t P_entry = (Pvoid_t)NULL;
   Pvoid_t sigma = (Pvoid_t)NULL;
-  Pvoid_t delta = (Pvoid_t)NULL;
   Word_t *pv, Rc_word, ltail, qhead, qtail, v, w, li, deg;
-  Word_t dv, dw, sigma_v, sigma_w, i, j;
+  Word_t dv, dw, sigma_v, sigma_w;
   int Rc_int;
 
   ltail = 0;  /* index of next available entry in L */
@@ -223,7 +239,7 @@ compute_node_brandes_betweenness_centrality(Word_t s)
 
       if (dw == dv + 1) {  /* the shortest path from s to w is via v? */
 #ifdef DEBUG
-	printf("  app %lu to P[%lu]\n", v, w);
+	printf("  P[%lu] << %lu\n", w, v);
 #endif
 	JLG(pv, sigma, w);  sigma_w = (pv ? *pv : 0);
 	JLI(pv, sigma, w);  *pv = sigma_w + sigma_v;
@@ -237,33 +253,153 @@ compute_node_brandes_betweenness_centrality(Word_t s)
     }
   }
 
-  i = -1;  /* start search from end of L */
-  JLL(pv, L, i);
-  while (pv != NULL) {
-    w = *pv;
+  compute_node_dependency(s, L, ltail, P, sigma);
+
+  JLFA(Rc_word, L);
+  free_predecessor_array(P);
+  JLFA(Rc_word, sigma);
+}
+
+
+/* ====================================================================== */
+
+/*
+** Computes delta[t], the dependency of s on t (delta_s_dot(t) in the
+** paper), and partially computes C_B[w] for all nodes reachable from a
+** single source node s.
+*/
+void
+compute_node_dependency(Word_t s, Pvoid_t L, Word_t ltail, Pvoid_t P,
+			Pvoid_t sigma)
+{
+  Pvoid_t P_entry = (Pvoid_t)NULL;
+  Word_t *pv, j, v, w, vi, wi, sigma_v, sigma_w;
+
+  zero_node_values(delta);
+
+  while (ltail-- > 0) {
+    JLG(pv, L, ltail);  w = *pv;
+    JLG(pv, sigma, w);  sigma_w = *pv;
+    JLG(pv, node_index, w);  wi = *pv;
+
 #ifdef DEBUG
-    printf("  >> L: w = %lu\n", w);
+    printf("  L: w = %lu; sigma_w = %lu; wi = %lu\n", w, sigma_w, wi);
 #endif
 
     JLG(pv, P, w);
     if (pv) {
       P_entry = (Pvoid_t)*pv;
+      for (j = 0; ; j++) {
+	JLG(pv, P_entry, j);
+	if (!pv) break;
 
-      j = 0;
-      JLF(pv, P_entry, j);
-      while (pv != NULL) {
 	v = *pv;
+	JLG(pv, sigma, v);  sigma_v = *pv;
+	JLG(pv, node_index, v);  vi = *pv;
+
+	delta[vi] += (sigma_v / (double)sigma_w) * (1.0 + delta[wi]);
+
 #ifdef DEBUG
-	printf("     P[w]: v = %lu\n", v);
+	printf("     P[w]: v = %lu, sigma_v = %lu; vi = %lu; d[vi] = %.5f\n",
+	       v, sigma_v, vi, delta[vi]);
 #endif
-	JLN(pv, P_entry, j);
       }
     }
 
-    JLP(pv, L, i);
+    if (w != s) {
+      centrality[wi] += delta[wi];
+#ifdef DEBUG
+      printf("     C_B[w] = %.5f\n", centrality[wi]);
+#endif
+    }
+  }
+}
+
+
+/* ====================================================================== */
+
+/*
+** Note: Because links are undirected, we also need to divide the computed
+**       absolute centrality values by 2.
+*/
+void normalize_node_centrality(void)
+{
+  double *x = centrality;
+  double *end = x + num_nodes;
+  double d = 2.0 * num_nodes * (num_nodes - 1);
+
+  while (x < end) {
+    *x++ /= d;
+  }
+}
+
+
+/* ====================================================================== */
+
+/*
+** Simultaneously computes the average distance and the standard deviation
+** of the distance distribution.
+**
+** The sample standard deviation code is efficient and numerically stable.
+*/
+void
+compute_centrality_statistics(void)
+{
+  unsigned long i, sd_i;
+  double x, sd_mean, sd_q;
+
+#ifdef DEBUG
+  printf("\n* node centrality distribution:\n");
+#endif
+
+  sd_mean = sd_q = 0.0;
+
+  for (i = 0; i < num_nodes; i++) {
+    x = centrality[i];
+#ifdef DEBUG
+    printf("  %.5f\n", x);
+#endif
+
+    /* std dev calculation */
+    sd_i = i + 1;
+    sd_q += (sd_i - 1) * (x - sd_mean) * (x - sd_mean) / sd_i;
+    sd_mean += (x - sd_mean) / sd_i;
   }
 
-  /* XXX free local Judy arrays */
+  printf("average node betweenness = %.5g\n", sd_mean);
+  printf("std deviation = %.5g\n", sqrt(sd_q / (sd_i - 1)));
+}
+
+
+/* ====================================================================== */
+
+void
+free_predecessor_array(Pvoid_t P)
+{
+  Pvoid_t P_entry = (Pvoid_t)NULL;
+  Word_t Rc_word, i, *pv;
+
+  i = 0;
+  JLF(pv, P, i);
+  while (pv != NULL) {
+    P_entry = (Pvoid_t)*pv;
+    JLFA(Rc_word, P_entry);
+    JLN(pv, P, i);
+  }
+
+  JLFA(Rc_word, P);
+}
+
+
+/* ====================================================================== */
+
+void zero_node_values(double *x)
+{
+  double *end = x + num_nodes;
+
+  while (x < end) {
+    *x++ = 0.0;
+  }
 }
 
 
@@ -276,6 +412,12 @@ main(int argc, char *argv[])
 #ifdef DEBUG
   dump_graph();
 #endif
+
+  /* Allocate {delta} once globally to avoid allocating for each source node. */
+  delta = (double *)malloc(num_nodes * sizeof(double));
+  centrality = (double *)malloc(num_nodes * sizeof(double));
+  zero_node_values(centrality);
+
   compute_brandes_betweenness_centrality();
   return 0;
 }
