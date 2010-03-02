@@ -345,7 +345,7 @@ void normalize_node_centrality(void)
 void
 compute_centrality_statistics(void)
 {
-  unsigned long i, sd_i;
+  unsigned long i, sd_i=0;
   double x, sd_mean, sd_q;
 
 #ifdef DEBUG
