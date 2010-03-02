@@ -282,7 +282,6 @@ void
 compute_average_distance(void)
 {
   Word_t i, j, count, *pv;
-  unsigned long long sum;  /* sum of the distances */
   long sd_i;
   double sd_mean, sd_q;
 
@@ -290,7 +289,6 @@ compute_average_distance(void)
   printf("\n* distance distribution:\n");
 #endif
 
-  sum = 0;
   sd_i = 0;
   sd_mean = sd_q = 0.0;
 
@@ -298,7 +296,6 @@ compute_average_distance(void)
   JLF(pv, distance_dist, i);
   while (pv != NULL) {
     count = *pv;
-    sum += i * count;
 
 #ifdef DEBUG
     printf("  %lu: %lu\n", i, count);
@@ -314,7 +311,7 @@ compute_average_distance(void)
     JLN(pv, distance_dist, i);
   }
 
-  printf("average distance = %.3f\n", sum / (double)num_pairs);
+  printf("average distance = %.3f\n", sd_mean);
   printf("std deviation = %.3f\n", sqrt(sd_q / (sd_i - 1)));
 }
 
