@@ -29,7 +29,7 @@ Pvoid_t distances = (Pvoid_t)NULL;
 */
 Pvoid_t node_index = (Pvoid_t)NULL;
 double *delta = NULL;       /* delta[t]: dependency of s on t */
-double *centrality = NULL;  /* C_B[v]: betweenness centrality for node v */
+double *node_centrality = NULL;  /* C_B[v]: betweenness centrality for node v */
 
 unsigned long num_nodes, num_links;
 unsigned long long num_pairs;  /* C(n, 2) pairs of nodes */
@@ -43,10 +43,10 @@ void compute_brandes_betweenness_centrality(void);
 void compute_node_brandes_betweenness_centrality(Word_t s);
 void compute_node_dependency(Word_t s, Pvoid_t L, Word_t ltail, Pvoid_t P,
 			     Pvoid_t sigma);
-void normalize_node_centrality(void);
+void normalize_centrality(void);
 void compute_centrality_statistics(void);
 void free_predecessor_array(Pvoid_t P);
-void zero_node_values(double *x);
+void zero_array(double *x);
 
 /* ====================================================================== */
 
@@ -152,7 +152,7 @@ compute_brandes_betweenness_centrality(void)
     JLN(pv, nodes, s);
   }
 
-  normalize_node_centrality();
+  normalize_centrality();
   compute_centrality_statistics();
 }
 
@@ -280,7 +280,7 @@ compute_node_dependency(Word_t s, Pvoid_t L, Word_t ltail, Pvoid_t P,
   Pvoid_t P_entry = (Pvoid_t)NULL;
   Word_t *pv, j, v, w, vi, wi, sigma_v, sigma_w;
 
-  zero_node_values(delta);
+  zero_array(delta);
 
   while (ltail-- > 0) {
     JLG(pv, L, ltail);  w = *pv;
@@ -312,9 +312,9 @@ compute_node_dependency(Word_t s, Pvoid_t L, Word_t ltail, Pvoid_t P,
     }
 
     if (w != s) {
-      centrality[wi] += delta[wi];
+      node_centrality[wi] += delta[wi];
 #ifdef DEBUG
-      printf("     C_B[w] = %.5f\n", centrality[wi]);
+      printf("     C_B[w] = %.5f\n", node_centrality[wi]);
 #endif
     }
   }
@@ -325,11 +325,11 @@ compute_node_dependency(Word_t s, Pvoid_t L, Word_t ltail, Pvoid_t P,
 
 /*
 ** Note: Because links are undirected, we need to divide the computed
-**       absolute centrality values by 2.
+**       absolute node centrality values by 2.
 */
-void normalize_node_centrality(void)
+void normalize_centrality(void)
 {
-  double *x = centrality;
+  double *x = node_centrality;
   double *end = x + num_nodes;
   double d = 2.0 * num_nodes * (num_nodes - 1);
 
@@ -366,7 +366,7 @@ compute_centrality_statistics(void)
   max_node_betweenness = 0.0;
 
   for (i = 0; i < num_nodes; i++) {
-    x = centrality[i];
+    x = node_centrality[i];
     sum += x;
 
 #ifdef DEBUG
@@ -415,7 +415,7 @@ free_predecessor_array(Pvoid_t P)
 
 /* ====================================================================== */
 
-void zero_node_values(double *x)
+void zero_array(double *x)
 {
   double *end = x + num_nodes;
 
@@ -437,8 +437,8 @@ main(int argc, char *argv[])
 
   /* Allocate {delta} once globally to avoid allocating for each source node. */
   delta = (double *)malloc(num_nodes * sizeof(double));
-  centrality = (double *)malloc(num_nodes * sizeof(double));
-  zero_node_values(centrality);
+  node_centrality = (double *)malloc(num_nodes * sizeof(double));
+  zero_array(node_centrality);
 
   compute_brandes_betweenness_centrality();
   return 0;
