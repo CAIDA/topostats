@@ -2,7 +2,12 @@
 ** Computes the Brandes betweenness centrality for nodes and links.
 **
 ** See Ulrik Brandes, "A faster algorithm for betweenness centrality,"
-** Journal of Mathematical Sociology, v25, n2, pp. 163-177, 2001.
+** Journal of Mathematical Sociology, v25, n2, pp. 163-177, 2001
+** for the fundamental algorithm for computing node betweenness.
+**
+** See Brandes, "On variants of shortest-path betweenness
+** centrality and their generic computation," Social Networks, Nov 2007
+** for the slight changes needed to compute edge betweenness.
 */
 
 #include <stdio.h>
@@ -319,7 +324,7 @@ compute_node_dependency(Word_t s, Pvoid_t L, Word_t ltail, Pvoid_t P,
 /* ====================================================================== */
 
 /*
-** Note: Because links are undirected, we also need to divide the computed
+** Note: Because links are undirected, we need to divide the computed
 **       absolute centrality values by 2.
 */
 void normalize_node_centrality(void)
@@ -337,28 +342,43 @@ void normalize_node_centrality(void)
 /* ====================================================================== */
 
 /*
-** Simultaneously computes the average distance and the standard deviation
-** of the distance distribution.
+** Computes the average, std dev, min, and max of the node betweenness
+** centrality.
 **
 ** The sample standard deviation code is efficient and numerically stable.
+** However, we compute the average betweenness separately rather than
+** simply re-using the mean calculated by the incremental standard
+** deviation code because the latter seems to produce a mean that is
+** slightly less accurate due to round-off errors.
 */
 void
 compute_centrality_statistics(void)
 {
   unsigned long i, sd_i=0;
-  double x, sd_mean, sd_q;
+  double x, sum, sd_mean, sd_q, min_node_betweenness, max_node_betweenness;
 
 #ifdef DEBUG
   printf("\n* node centrality distribution:\n");
 #endif
 
-  sd_mean = sd_q = 0.0;
+  sum = sd_mean = sd_q = 0.0;
+  min_node_betweenness = -1.0;
+  max_node_betweenness = 0.0;
 
   for (i = 0; i < num_nodes; i++) {
     x = centrality[i];
+    sum += x;
+
 #ifdef DEBUG
     printf("  %.5f\n", x);
 #endif
+    if (x > max_node_betweenness) {
+      max_node_betweenness = x;
+    }
+
+    if (x < min_node_betweenness || min_node_betweenness < 0) {
+      min_node_betweenness = x;
+    }
 
     /* std dev calculation */
     sd_i = i + 1;
@@ -366,8 +386,10 @@ compute_centrality_statistics(void)
     sd_mean += (x - sd_mean) / sd_i;
   }
 
-  printf("average node betweenness = %.5g\n", sd_mean);
-  printf("std deviation = %.5g\n", sqrt(sd_q / (sd_i - 1)));
+  printf("average node betweenness = %.4e\n", sum / num_nodes);
+  printf("std dev of node betweenness = %.4e\n", sqrt(sd_q / (sd_i - 1)));
+  printf("min node betweenness = %.4e\n", min_node_betweenness);
+  printf("max node betweenness = %.4e\n", max_node_betweenness);
 }
 
 
