@@ -140,8 +140,7 @@ compute_distance_metrics(void)
   unsigned long graph_radius=0, graph_diameter=0;
   unsigned long min_deg_in_graph_center=0, max_deg_in_graph_periphery=0;
   unsigned long eccentricity;
-  double avg_eccentricity=0.0;
-  unsigned long k=0;  /* index of eccentricity sample for calculating mean */
+  double eccentricity_sum=0.0; /* for calculating avg eccentricity */
   Word_t i, li, deg, *pv;
 
   i = 0;
@@ -152,6 +151,8 @@ compute_distance_metrics(void)
 #endif
 
     eccentricity = compute_node_distance_metrics(i);
+    eccentricity_sum += eccentricity;
+
 #ifdef DEBUG
     printf("  eccentricity %lu = %lu\n", i, eccentricity);
 #endif
@@ -182,17 +183,12 @@ compute_distance_metrics(void)
       max_deg_in_graph_periphery = deg;
     }
 
-    /* A numerically stable incremental calculation of the mean:
-            M(1) = x(1), M(k) = M(k-1) + (x(k) - M(k-1)) / k  */
-    ++k;
-    avg_eccentricity += (eccentricity - avg_eccentricity) / k;
-
     JLN(pv, nodes, i);
   }
 
   compute_distance_statistics();
 
-  printf("average eccentricity = %.3f\n", avg_eccentricity);
+  printf("average eccentricity = %.3f\n", eccentricity_sum / num_nodes);
   printf("graph radius = %lu\n", graph_radius);
   printf("graph diameter = %lu\n", graph_diameter);
   printf("min degree in graph center = %lu\n", min_deg_in_graph_center);
@@ -203,7 +199,10 @@ compute_distance_metrics(void)
 /* ====================================================================== */
 
 /*
-** Returns the eccentricity of the node.
+** Computes and returns the eccentricity of the given node, and also updates
+** the distance distribution.
+**
+** Distances are calculated with a breadth-first search.
 */
 unsigned long
 compute_node_distance_metrics(Word_t i0)
