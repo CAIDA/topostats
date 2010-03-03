@@ -441,14 +441,14 @@ void
 compute_centrality_statistics(double *centrality, unsigned long len,
 			      const char *name)
 {
-  unsigned long i, num_values=0, sd_i=0;
-  double x, sum, sd_mean, sd_q, min_betweenness, max_betweenness;
+  unsigned long i, num_values=0;
+  double x, sum, min_betweenness, max_betweenness;
 
 #ifdef DEBUG
   printf("\n* %s centrality distribution:\n", name);
 #endif
 
-  sum = sd_mean = sd_q = 0.0;
+  sum = 0.0;
   min_betweenness = -1.0;
   max_betweenness = 0.0;
 
@@ -469,16 +469,10 @@ compute_centrality_statistics(double *centrality, unsigned long len,
     if (x < min_betweenness || min_betweenness < 0) {
       min_betweenness = x;
     }
-
-    /* std dev calculation */
-    sd_i = i + 1;
-    sd_q += (sd_i - 1) * (x - sd_mean) * (x - sd_mean) / sd_i;
-    sd_mean += (x - sd_mean) / sd_i;
   }
 
-  printf("average %s betweenness = %.4e\n", name, sum / num_values);
-  printf("std dev of %s betweenness = %.4e\n", name, sqrt(sd_q / (sd_i - 1)));
   printf("min %s betweenness = %.4e\n", name, min_betweenness);
+  printf("average %s betweenness = %.4e\n", name, sum / num_values);
   printf("max %s betweenness = %.4e\n", name, max_betweenness);
 }
 
