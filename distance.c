@@ -318,7 +318,7 @@ compute_distance_statistics(void)
   }
 
   printf("average distance = %.3f\n", sum / (double)num_pairs);
-  printf("std deviation = %.3f\n", sqrt(sd_q / (sd_i - 1)));
+  printf("std deviation of distance = %.3f\n", sqrt(sd_q / (sd_i - 1)));
 }
 
 
