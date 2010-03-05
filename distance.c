@@ -3,7 +3,6 @@
 **
 **   * average distance
 **   * std deviation of distance
-**   * exponent of distance distribution
 **
 **   * average eccentricity
 **   * graph radius

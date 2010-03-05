@@ -1,5 +1,6 @@
 /*
-** Computes the Brandes betweenness centrality for nodes and links.
+** Computes the Brandes betweenness centrality for nodes and links,
+** and reports min/max/avg node/edge betweenness (normalized).
 **
 ** See Ulrik Brandes, "A faster algorithm for betweenness centrality,"
 ** Journal of Mathematical Sociology, v25, n2, pp. 163-177, 2001
