@@ -26,9 +26,24 @@
 ** along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <unistd.h>
 #include <stdio.h>
 #include <math.h>
 #include <Judy.h>
+
+/*
+** Whether to normalize betweenness in the old way, by dividing by n(n-1)
+** instead of (n-1)(n-2)/2.  The factor n(n-1) was used in "Lessons from
+** Three Views of the Internet Topology" and is based on the upper bound
+** given in "Exploring networks with traceroute-like probes: theory and
+** simulation".  However, the exact upper bound on betweenness is
+** (n-1)(n-2)/2, as shown in "A Set of Measures of Centrality Based on
+** Betweenness", and this is the normalization factor used by Boost and R.
+** Therefore, to produce widely comparable values, we should normalize by
+** (n-1)(n-2)/2 by default and only normalize by n(n-1) when validating
+** against the Three Views paper.
+*/
+int loose_normalization = 0;
 
 Pvoid_t nodes = (Pvoid_t)NULL;
 Pvoid_t links = (Pvoid_t)NULL;
@@ -414,15 +429,20 @@ compute_node_dependency(Word_t s, Pvoid_t L, Word_t ltail, Pvoid_t P,
 /*
 ** Normalizes the absolute node and edge centrality values.
 **
-** Note: Because we represent undirected link with a pair of symmetric
+** Note: Because we represent each undirected link with a pair of symmetric
 **       directed links, we need to divide the computed absolute node
-**       centrality values by 2 in addition to normalizing by n(n - 1).
+**       centrality values by 2 in addition to normalizing by n(n - 1) or
+**       (n - 1)(n - 2)/2.
+**
+**       In contrast, we shouldn't divide edge centrality by 2.
 */
 void normalize_centrality(void)
 {
+  double factor = (loose_normalization ? num_nodes * (num_nodes - 1)
+		   : (num_nodes - 1) * (num_nodes - 2) / 2.0);
   double *x = node_centrality;
   double *end = x + num_nodes;
-  double d = 2.0 * num_nodes * (num_nodes - 1);
+  double d = 2.0 * factor;
 
   while (x < end) {
     *x++ /= d;
@@ -430,7 +450,7 @@ void normalize_centrality(void)
 
   x = edge_centrality;
   end = x + links_array_size;
-  d = num_nodes * (num_nodes - 1);
+  d = factor;
 
   while (x < end) {
     if (*x >= 0.0) {  /* edge centrality has -1.0 at non-link entries */
@@ -530,6 +550,25 @@ void fill_array(double *x, unsigned long len, double value)
 int
 main(int argc, char *argv[])
 {
+  int c;
+
+  while ((c = getopt(argc, argv, "z")) != -1) {
+    switch (c) {
+    case 'z':
+      loose_normalization = 1;
+      break;
+
+    case '?':
+    default:
+      fprintf(stderr, "Usage: betweenness [-z]\n"
+        "Options:\n"
+        "  -z to normalize betweenness with n(n-1) [NOT recommended]\n");
+      exit(1);
+    }
+  }
+  argc -= optind;
+  argv += optind;
+
   load_graph();
 #ifdef DEBUG
   dump_graph();
