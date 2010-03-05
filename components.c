@@ -47,6 +47,7 @@ load_graph(void)
 {
   Word_t pi, i, v, l0, li, d;
   Word_t *pv;
+  int rc;
 
   num_nodes = num_links = 0;
 
@@ -55,7 +56,7 @@ load_graph(void)
   li = 1;  /* index of current link */
   d = 0;   /* node degree */
 
-  while (scanf("%lu %lu", &i, &v) > 0) {
+  while ((rc = scanf("%lu %lu", &i, &v)) == 2) {
     if (i == 0 || v == 0) {
       fputs("ERROR: node IDs must be > 0\n", stderr);
       exit(1);
@@ -77,6 +78,11 @@ load_graph(void)
     JLI(pv, links, li);  *pv = v;
     ++li;
     ++d;
+  }
+
+  if (rc != EOF && rc != 2) {
+    fputs("ERROR: malformed line in input graph\n", stderr);
+    exit(1);
   }
 
   if (num_nodes > 0) {
