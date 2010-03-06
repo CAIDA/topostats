@@ -24,6 +24,8 @@
 #include <stdio.h>
 #include <Judy.h>
 
+FILE *out = NULL;  /* for printing out the largest component with -o */
+
 Pvoid_t nodes = (Pvoid_t)NULL;
 Pvoid_t links = (Pvoid_t)NULL;
 
@@ -205,7 +207,7 @@ find_connected_component(Word_t i0, int print_component)
       }
 
       if (print_component) {
-	printf("%lu %lu\n", i, i2);
+	fprintf(out, "%lu %lu\n", i, i2);
       }
     }
   }
@@ -223,8 +225,8 @@ int
 main(int argc, char *argv[])
 {
   const char *opt_output_path=NULL;
-  int c;
   Word_t cc_id, Rc_word;
+  int c;
 
   while ((c = getopt(argc, argv, "o:")) != -1) {
     switch (c) {
@@ -247,9 +249,11 @@ main(int argc, char *argv[])
   dump_graph();
 #endif
 
+  out = stdout;
   cc_id = find_connected_components();
+
   if (opt_output_path) {
-    if (!freopen(opt_output_path, "w", stdout)) {
+    if ((out = fopen(opt_output_path, "w")) == NULL) {
       fprintf(stderr, "ERROR: couldn't open output file '%s'\n",
 	      opt_output_path);
       exit(1);
