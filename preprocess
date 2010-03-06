@@ -55,7 +55,7 @@ IO.popen("sort -k 1,2n -k 2,3n", "w") do |sort|
   ARGF.each do |line|
     next if line =~ /^\s*$/ || line =~ /^\#/
 
-    if line =~ /^(\d+)\s+(\d+)\s*/
+    if line =~ /^(\d+)\s+(\d+)\s*$/
       s, d = $1, $2
       if s == d && !$options.allow_self_loops
         $stderr.printf "discarding self loop on node %d\n", s
@@ -63,6 +63,9 @@ IO.popen("sort -k 1,2n -k 2,3n", "w") do |sort|
       end
 
       sort.puts "#{s} #{d}\n#{d} #{s}"
+    else
+      $stderr.printf "ERROR: malformed line: %s\n", line
+      exit 1
     end
   end
 end
