@@ -27,8 +27,12 @@
 ** along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <unistd.h>
+#include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
 #include <math.h>
+#include <sys/time.h>
 #include <Judy.h>
 
 Pvoid_t nodes = (Pvoid_t)NULL;
@@ -42,6 +46,9 @@ Pvoid_t distance_dist = (Pvoid_t)NULL;
 unsigned long num_nodes, num_links;
 unsigned long long num_pairs;  /* C(n, 2) pairs of nodes */
 
+unsigned long progress_interval = 0;
+struct timeval start_time, end_time;
+
 /* ====================================================================== */
 
 void load_graph(void);
@@ -50,6 +57,8 @@ void dump_links(Word_t i, Word_t li);
 void compute_distance_metrics(void);
 unsigned long compute_node_distance_metrics(Word_t i0);
 void compute_distance_statistics(void);
+void print_duration(double s);
+double timeval_diff(const struct timeval *a, const struct timeval *b);
 
 
 /* ====================================================================== */
@@ -163,6 +172,13 @@ compute_distance_metrics(void)
   unsigned long eccentricity;
   double eccentricity_sum=0.0; /* for calculating avg eccentricity */
   Word_t i, li, deg, *pv;
+  unsigned long done_nodes, report_wait;
+
+  done_nodes = 0;
+  report_wait = progress_interval;
+  if (progress_interval > 0) {
+    gettimeofday(&start_time, NULL);
+  }
 
   i = 0;
   JLF(pv, nodes, i);
@@ -204,7 +220,26 @@ compute_distance_metrics(void)
       max_deg_in_graph_periphery = deg;
     }
 
+    ++done_nodes;
+    if (--report_wait == 0 && progress_interval > 0) {
+      report_wait = progress_interval;
+      gettimeofday(&end_time, NULL);
+      { double delta = timeval_diff(&start_time, &end_time);
+	double eta = (num_nodes - done_nodes) * delta / done_nodes;
+	printf("... finished %lu nodes in %.3f seconds; eta =",
+	       done_nodes, delta);
+	print_duration(eta);
+	printf("\n");
+      }
+    }
+
     JLN(pv, nodes, i);
+  }
+
+  if (progress_interval > 0) {
+    gettimeofday(&end_time, NULL);
+    printf("... computed distance metrics in %.3f seconds\n",
+	   timeval_diff(&start_time, &end_time));
   }
 
   compute_distance_statistics();
@@ -345,13 +380,100 @@ compute_distance_statistics(void)
 
 /* ====================================================================== */
 
+void print_duration(double s)
+{
+  double d, h, m;
+
+  d = h = m = 0.0;
+
+  if (s > 86400.0) {
+    d = floor(s / 86400.0);
+    s = fmod(s, 86400.0);
+  }
+
+  if (s > 3600.0) {
+    h = floor(s / 3600.0);
+    s = fmod(s, 3600.0);
+  }
+
+  if (s > 60.0) {
+    m = floor(s / 60.0);
+    s = fmod(s, 60.0);
+  }
+
+  if (d > 0.0) {
+    printf(" %.0f days", d);
+  }
+
+  printf(" %02.0f:%02.0f:%02.0f", h, m, s);
+}
+
+
+/* ====================================================================== */
+
+/* Returns b - a in seconds. */
+double timeval_diff(const struct timeval *a, const struct timeval *b)
+{
+  struct timeval delta;
+
+  delta.tv_sec = b->tv_sec - a->tv_sec;
+  delta.tv_usec = b->tv_usec - a->tv_usec;
+
+  if(delta.tv_usec < 0) {
+    delta.tv_sec--;
+    delta.tv_usec += 1000000;
+  }
+
+  return delta.tv_sec + delta.tv_usec / 1000000.0;
+}
+
+
+/* ====================================================================== */
+
 int
 main(int argc, char *argv[])
 {
+  int c;
+  char *endptr;
+
+  while ((c = getopt(argc, argv, "p:")) != -1) {
+    switch (c) {
+    case 'p':
+      progress_interval = strtoul(optarg, &endptr, 10);
+      if (*optarg == '\0' || *endptr != '\0'
+	  || errno == EINVAL || errno == ERANGE) {
+	fprintf(stderr, "ERROR: invalid argument to -p: %s\n", optarg);
+	exit(1);
+      }
+      break;
+
+    case '?':
+    default:
+      fprintf(stderr, "Usage: distance [-p <interval>]\n"
+        "Options:\n"
+        "  -p print progress every N iterations\n");
+      exit(1);
+    }
+  }
+  argc -= optind;
+  argv += optind;
+
+  if (progress_interval > 0) {
+    gettimeofday(&start_time, NULL);
+  }
+
   load_graph();
+
+  if (progress_interval > 0) {
+    gettimeofday(&end_time, NULL);
+    printf("loaded graph in %.3f seconds\n",
+	   timeval_diff(&start_time, &end_time));
+  }
+
 #ifdef DEBUG
   dump_graph();
 #endif
+
   compute_distance_metrics();
   return 0;
 }
